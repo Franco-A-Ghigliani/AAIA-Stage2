@@ -1,2 +1,13 @@
+# Local environment and IDE state
+.idea/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local assignment source PDFs, task data, and generated runs
 *.pdf
-./.venv
+traces/
+sessions/
+
+# User-requested local recording notes; keep out of Git
+demo-video-script.md

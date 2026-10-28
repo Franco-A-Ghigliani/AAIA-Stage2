@@ -1,0 +1,6 @@
+# Build this trusted image separately. Target repositories never control it.
+FROM python:3.14-slim
+# python slim supplies bash and GNU timeout, but no Git/deployment clients.
+ENV HOME=/tmp PYTHONDONTWRITEBYTECODE=1
+WORKDIR /workspace
+USER 65534:65534
