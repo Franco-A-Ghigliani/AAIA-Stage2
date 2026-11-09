@@ -1,0 +1,44 @@
+# Copy to settings.toml to change values. No secrets belong here: the LiteLLM URL and key
+# come from the environment (see .env.example). Paths are relative to this file.
+
+[model]
+provider = "litellm"     # or "ollama", which uses name, endpoint and num_ctx below
+name = "Qwen/Qwen3.6-35B-A3B"  # LITELLM_MODEL wins over this for the litellm provider
+endpoint = "http://127.0.0.1:11434/api/chat"
+num_ctx = 16384
+timeout = 300            # one shared GPU: a call may wait behind other users
+max_tokens = 4096
+
+[limits]
+max_actions = 40         # model calls per session, kept across resumes
+max_failed_checks = 6    # consecutive failed checks before the run stops
+self_reviews = 1         # final answers sent back once for a check against the task
+output_bytes = 12000     # per tool result and per check output
+command_timeout = 60     # seconds per check
+context_chars = 60000    # message content per model call, about 15,000 tokens
+
+# Only projects listed here can be selected.
+[projects.cosmicpython]
+source = "targets/cosmicpython"                       # clone of the target repository
+commit = "14c84797ffa77255d53cf1a02fe6aafda2b68aeb"   # exact starting commit
+writable = ["src/allocation/"]                        # the only paths edit_file may change
+image = "coding-harness-cosmic:1"
+env = { PYTHONPATH = "/work/src", PYTHONDONTWRITEBYTECODE = "1" }
+
+# Checks the model may request by name. There is no free shell.
+[projects.cosmicpython.commands]
+unit_tests = ["python", "-m", "pytest", "tests/unit", "-q", "-p", "no:cacheprovider"]
+
+# Checks the harness runs itself after the model stops, whatever the model claims.
+[projects.cosmicpython.verification]
+acceptance = ["python", "-m", "pytest", "/acceptance/test_acceptance.py", "-q", "-p", "no:cacheprovider"]
+unit_tests = ["python", "-m", "pytest", "tests/unit", "-q", "-p", "no:cacheprovider"]
+
+# `acceptance` is mounted read-only at /acceptance; it is never inside the workspace.
+[projects.cosmicpython.tasks.bugfix]
+request = "task/request.md"
+acceptance = "task"
+
+[projects.cosmicpython.tasks.cancel-allocation]
+request = "task/feature/request.md"
+acceptance = "task/feature"

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: coding-harness
+Version: 0.2.0
+Summary: Stage 2 coding harness: features across modules, bounded context, saved sessions
+Requires-Python: >=3.11
+Requires-Dist: python-dotenv>=1.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest-cov>=5; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"

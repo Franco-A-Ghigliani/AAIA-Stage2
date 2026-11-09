@@ -1,13 +1,12 @@
-# Local environment and IDE state
-.idea/
-.venv/
+targets/
+runs/
+settings.toml
 __pycache__/
-*.py[cod]
-
-# Local assignment source PDFs, task data, and generated runs
-*.pdf
-traces/
-sessions/
-
-# User-requested local recording notes; keep out of Git
-demo-video-script.md
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.DS_Store
+.env
+/evidence/
+.idea/
