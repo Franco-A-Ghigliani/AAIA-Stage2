@@ -8,5 +8,6 @@ __pycache__/
 .coverage
 .DS_Store
 .env
-/evidence/
 .idea/
+./demo_video_script.md
+*.pdf

@@ -1,0 +1,127 @@
+diff --git a/src/allocation/domain/commands.py b/src/allocation/domain/commands.py
+index 5473eff..bade4cd 100644
+--- a/src/allocation/domain/commands.py
++++ b/src/allocation/domain/commands.py
+@@ -27,3 +27,9 @@ class CreateBatch(Command):
+ class ChangeBatchQuantity(Command):
+     ref: str
+     qty: int
++
++
++@dataclass
++class CancelAllocation(Command):
++    orderid: str
++    sku: str
+diff --git a/src/allocation/domain/events.py b/src/allocation/domain/events.py
+index 47634f6..676e3c4 100644
+--- a/src/allocation/domain/events.py
++++ b/src/allocation/domain/events.py
+@@ -24,3 +24,10 @@ class Deallocated(Event):
+ @dataclass
+ class OutOfStock(Event):
+     sku: str
++
++
++@dataclass
++class AllocationCancelled(Event):
++    orderid: str
++    sku: str
++    qty: int
+diff --git a/src/allocation/domain/model.py b/src/allocation/domain/model.py
+index dd4ac78..e802fcb 100644
+--- a/src/allocation/domain/model.py
++++ b/src/allocation/domain/model.py
+@@ -37,6 +37,13 @@ class Product:
+             line = batch.deallocate_one()
+             self.events.append(events.Deallocated(line.orderid, line.sku, line.qty))
+ 
++    def deallocate(self, orderid: str, sku: str):
++        batch = next(b for b in self.batches for line in b._allocations if line.orderid == orderid and line.sku == sku)
++        line = next(line for line in batch._allocations if line.orderid == orderid and line.sku == sku)
++        batch.deallocate(line)
++        self.version_number += 1
++        self.events.append(events.AllocationCancelled(orderid=orderid, sku=sku, qty=line.qty))
++
+ 
+ @dataclass(unsafe_hash=True)
+ class OrderLine:
+@@ -78,6 +85,10 @@ class Batch:
+     def deallocate_one(self) -> OrderLine:
+         return self._allocations.pop()
+ 
++    def deallocate(self, line: OrderLine):
++        if line in self._allocations:
++            self._allocations.remove(line)
++
+     @property
+     def allocated_quantity(self) -> int:
+         return sum(line.qty for line in self._allocations)
+diff --git a/src/allocation/service_layer/handlers.py b/src/allocation/service_layer/handlers.py
+index 2d7aa8d..457759a 100644
+--- a/src/allocation/service_layer/handlers.py
++++ b/src/allocation/service_layer/handlers.py
+@@ -14,6 +14,10 @@ class InvalidSku(Exception):
+     pass
+ 
+ 
++class AllocationNotFound(Exception):
++    pass
++
++
+ def add_batch(
+     cmd: commands.CreateBatch,
+     uow: unit_of_work.AbstractUnitOfWork,
+@@ -57,6 +61,21 @@ def change_batch_quantity(
+         uow.commit()
+ 
+ 
++def cancel(
++    cmd: commands.CancelAllocation,
++    uow: unit_of_work.AbstractUnitOfWork,
++):
++    with uow:
++        product = uow.products.get(sku=cmd.sku)
++        if product is None:
++            raise InvalidSku(f"Invalid sku {cmd.sku}")
++        try:
++            product.deallocate(cmd.orderid, cmd.sku)
++        except StopIteration:
++            raise AllocationNotFound(f"No allocation found for order {cmd.orderid} and sku {cmd.sku}")
++        uow.commit()
++
++
+ # pylint: disable=unused-argument
+ 
+ 
+@@ -107,14 +126,31 @@ def remove_allocation_from_read_model(
+         uow.commit()
+ 
+ 
++def remove_allocation_from_read_model_on_cancel(
++    event: events.AllocationCancelled,
++    uow: unit_of_work.SqlAlchemyUnitOfWork,
++):
++    with uow:
++        uow.session.execute(
++            """
++            DELETE FROM allocations_view
++            WHERE orderid = :orderid AND sku = :sku
++            """,
++            dict(orderid=event.orderid, sku=event.sku),
++        )
++        uow.commit()
++
++
+ EVENT_HANDLERS = {
+     events.Allocated: [publish_allocated_event, add_allocation_to_read_model],
+     events.Deallocated: [remove_allocation_from_read_model, reallocate],
+     events.OutOfStock: [send_out_of_stock_notification],
++    events.AllocationCancelled: [remove_allocation_from_read_model_on_cancel],
+ }  # type: Dict[Type[events.Event], List[Callable]]
+ 
+ COMMAND_HANDLERS = {
+     commands.Allocate: allocate,
+     commands.CreateBatch: add_batch,
+     commands.ChangeBatchQuantity: change_batch_quantity,
++    commands.CancelAllocation: cancel,
+ }  # type: Dict[Type[commands.Command], Callable]
