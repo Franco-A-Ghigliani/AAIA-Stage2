@@ -311,5 +311,6 @@ The change the model made in runs 2 and 3:
 
 ## Credits
 
-The harness was written with help from Claude Code. Target repository: Cosmic Python by Harry
+Selected sections of the harness where implemented with assistance from Codex.
+Target repository: Cosmic Python by Harry
 Percival and Bob Gregory. Model access: the FH Technikum Wien local LLM pilot.
